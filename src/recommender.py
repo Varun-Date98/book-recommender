@@ -4,14 +4,22 @@ import logging
 import numpy as np
 import pandas as pd
 from datetime import date
-from typing import Optional
-from pydantic import BaseModel
+from dotenv import load_dotenv
+
+from typing import Optional, List
+
+import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 from fastapi import FastAPI
+from pydantic import BaseModel
 from contextlib import asynccontextmanager
+
 from src.LanguageModel import LanguageModel
 
 
 # Setting up app logging
+load_dotenv()
 os.makedirs("logs", exist_ok=True)
 log_file = f"logs/{date.today()}app.log"
 logging.basicConfig(
@@ -73,6 +81,52 @@ def recommend_books(title: str, k: int = 5):
 
     return recs["Title"].values
 
+def get_cover_images(titles: List[str], authors: List[str]):
+    ids = []
+    covers = []
+    BASE_URL = os.environ["OPEN_LIB_BASE"]
+    cover_img_url = os.environ["OPEN_LIB_COVER_IMG"]
+    cover_id_url = BASE_URL + "title={}&author={}&fields=cover_i&limit=1"
+
+    retry = Retry(total=3, backoff_factor=0.5, status_forcelist=[500, 502, 503, 504])
+    adapter = HTTPAdapter(pool_connections=10, pool_maxsize=10, max_retries=retry)
+
+    try:
+        with requests.Session() as s:
+            s.mount("https://", adapter)
+            s.headers.update({"User-Agent": "book-recommender/1.0"})
+
+            for title, author in zip(titles, authors):
+                title_ = "+".join(title.split(" "))
+                author_ = "+".join(author.split(" "))
+                query = cover_id_url.format(title_, author_)
+
+                logger.info(f"Retrieving cover from url: {query}")
+
+                resp = s.get(query)
+
+                if resp.status_code == 200:
+                    d = resp.json().get("docs", [None])[0]
+
+                    if d:
+                        ids.append(d.get("cover_i", None))
+                    else:
+                        ids.append(None)
+                else:
+                    ids.append(None)
+                    logger.error(f"Failed to get response from open library.")
+    except Exception as e:
+        logger.error(f"Error occurred while trying to fetch book covers, {e}")
+    finally:
+        s.close()
+        logger.info("Session closed successfully")
+
+    for i in ids:
+        covers.append(cover_img_url.format(i))
+
+    logger.info(f"URLs for the book covers are: {covers}")
+    return covers
+
 # FastAPI app
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -93,6 +147,11 @@ app = FastAPI(title="Book Recommendation", version="0.0.0", lifespan=lifespan)
 def heart_beat():
     return {"status": "Ok"}
 
+@app.get("/get_titles")
+def get_book_titles():
+    books = models["books"]["Title"].astype(str).tolist()
+    return {"books": books}
+
 @app.post("/recommend")
 def make_recommendation(request: RecommendRequest = None):
     als_recs = None
@@ -103,4 +162,17 @@ def make_recommendation(request: RecommendRequest = None):
     if title:
         als_recs = recommend_books(title)
 
-    return llm.refine_recommendations(title, author, mood, als_recs)
+    try:
+        recs = llm.refine_recommendations(title, author, mood, als_recs)
+        titles = recs.get("books", [])
+        authors = recs.get("authors", [])
+        reasons = recs.get("reasons", [])
+        covers = get_cover_images(titles, authors)
+        return dict(
+            titles=titles,
+            authors=authors,
+            reasons=reasons,
+            covers=covers
+        )
+    except Exception as e:
+        logger.error(f"Error occurred while fetching recommendations from LLM: {e}")

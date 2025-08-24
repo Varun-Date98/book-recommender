@@ -1,5 +1,7 @@
 import os
+import json
 import logging
+from typing import Dict
 from typing import List
 from openai import OpenAI
 from datetime import date
@@ -26,7 +28,8 @@ class LanguageModel:
         self.temp = temperature
         self.client = OpenAI(api_key=os.environ["OPEN_AI_KEY"])
 
-    def refine_recommendations(self, title: str, author: str, mood: str, als_recs: List[str]):
+    def refine_recommendations(self, title: str, author: str,
+                               mood: str, als_recs: List[str]) -> Dict[str, str]:
         query = f"""
         You are a book recommendation system.
 
@@ -37,10 +40,12 @@ class LanguageModel:
            - Keep ALS recommendations that are relevant.
            - Remove irrelevant ones.
            - If fewer than five relevant remain, fill in with your own.
-        4. Output **only valid JSON** in this schema:
+        4. For each of the recommended book, provide a short (less than 300 characters) reason as to why the user might like it.
+        5. Output **only valid JSON** in this schema:
         {{
           "books": ["Book Title 1", "Book Title 2", "Book Title 3", "Book Title 4", "Book Title 5"],
-          "authors": ["Author 1", "Author 2", "Author 3", "Author 4", "Author 5"]
+          "authors": ["Author 1", "Author 2", "Author 3", "Author 4", "Author 5"],
+          "reasons": ["Reason 1", "Reason 2", "Reason 3", "Reason 4", "Reason 5"]
         }}
         
         User input:
@@ -58,4 +63,4 @@ class LanguageModel:
         result = response.choices[0].message.content
         logger.info(f"Recommendations for input (book title: {title}, author: {author}, mood: {mood},"
                     f"recs: {als_recs}) is: {result}")
-        return result
+        return json.loads(result)
