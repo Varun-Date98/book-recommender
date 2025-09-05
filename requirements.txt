@@ -1,5 +1,7 @@
 numpy
 pandas
+redis
+orjson
 fastapi
 uvicorn[standard]
 streamlit

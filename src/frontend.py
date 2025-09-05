@@ -1,5 +1,4 @@
 import os
-import json
 import requests
 import pandas as pd
 import streamlit as st
@@ -68,23 +67,26 @@ if recommend:
         "mood": mood if mood else None
     }
 
-    try:
-        with st.spinner("Fetching book recommendations"):
-            resp = requests.post("/".join([home, "recommend"]), json=payload)
+    if not any(payload[x] for x in payload):
+        st.warning("Please enter any of book title or author or mood to get suggestions.")
+    else:
+        try:
+            with st.spinner("Fetching book recommendations"):
+                resp = requests.post("/".join([home, "recommend"]), json=payload)
 
-            if resp.status_code == 200:
-                recs_df = pd.DataFrame(resp.json())
+                if resp.status_code == 200:
+                    recs_df = pd.DataFrame(resp.json())
 
-                st.dataframe(
-                    recs_df[["covers", "titles", "authors", "reasons"]],
-                    use_container_width= True, hide_index=True,
-                    row_height=100,
-                    column_config={
-                        "covers": st.column_config.ImageColumn("Cover", help="From Open Library", width=60),
-                        "titles": st.column_config.TextColumn("Book Title", width="small"),
-                        "authors": st.column_config.TextColumn("Book Author", width="small"),
-                        "reasons": st.column_config.TextColumn("Reason", width="large")
-                    }
-                )
-    except Exception as e:
-        print(f"Error occurred, {e}")
+                    st.dataframe(
+                        recs_df[["covers", "titles", "authors", "reasons"]],
+                        use_container_width= True, hide_index=True,
+                        row_height=100,
+                        column_config={
+                            "covers": st.column_config.ImageColumn("Cover", help="From Open Library", width=60),
+                            "titles": st.column_config.TextColumn("Book Title", width="small"),
+                            "authors": st.column_config.TextColumn("Book Author", width="small"),
+                            "reasons": st.column_config.TextColumn("Reason", width="large")
+                        }
+                    )
+        except Exception as e:
+            print(f"Error occurred, {e}")

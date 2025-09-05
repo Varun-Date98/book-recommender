@@ -6,6 +6,8 @@ import pandas as pd
 from datetime import date
 from dotenv import load_dotenv
 
+from src import caching
+
 from typing import Optional, List
 
 import requests
@@ -37,6 +39,7 @@ logger = logging.getLogger("Book Recommendation Logger")
 # Required boilerplate code
 models = {}
 llm = LanguageModel()
+caching_enabled = True
 
 
 class RecommendRequest(BaseModel):
@@ -130,6 +133,14 @@ def get_cover_images(titles: List[str], authors: List[str]):
 # FastAPI app
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Start redis
+    try:
+        await caching.init()
+    except Exception as e:
+        global caching_enabled
+        caching_enabled = False
+        logger.error(f"Could not start redis for caching, {e}")
+
     # Loading models
     models["books"] = pd.read_parquet("models/book_metadata")
     models["item_factors"] = pd.read_parquet("models/item_factors")
@@ -140,6 +151,13 @@ async def lifespan(app: FastAPI):
     )
 
     yield
+
+    # Close redis
+    try:
+        await caching.close()
+    except Exception as e:
+        logger.error(f"Could not close redis cache, {e}")
+
 
 app = FastAPI(title="Book Recommendation", version="0.0.0", lifespan=lifespan)
 
@@ -153,11 +171,18 @@ def get_book_titles():
     return {"books": books}
 
 @app.post("/recommend")
-def make_recommendation(request: RecommendRequest = None):
+async def make_recommendation(request: RecommendRequest = None):
     als_recs = None
     mood = request.mood
     title = request.title
     author = request.author
+
+    if caching_enabled:
+        cached = await caching.get(title, author, mood)
+
+        if cached is not None:
+            logger.info(f"Found cached recommendation for {title, author, mood} - {cached}")
+            return cached
 
     if title:
         als_recs = recommend_books(title)
@@ -168,11 +193,25 @@ def make_recommendation(request: RecommendRequest = None):
         authors = recs.get("authors", [])
         reasons = recs.get("reasons", [])
         covers = get_cover_images(titles, authors)
-        return dict(
+        recommendation_payload = dict(
             titles=titles,
             authors=authors,
             reasons=reasons,
             covers=covers
         )
+        cache_payload = dict(
+            title=title,
+            author=author,
+            mood=mood,
+            recs=recommendation_payload
+        )
+
+        try:
+            await caching.put(cache_payload)
+            logger.info(f"Cached recommendations for {title, author, mood}")
+        except Exception as e:
+            logger.error(f"Could not cache recommendations, {e}")
+
+        return recommendation_payload
     except Exception as e:
         logger.error(f"Error occurred while fetching recommendations from LLM: {e}")
