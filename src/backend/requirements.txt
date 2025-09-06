@@ -1,0 +1,9 @@
+redis
+orjson
+openai
+pandas
+pyarrow
+fastapi
+requests
+python-dotenv
+uvicorn[standard]

@@ -1,0 +1,43 @@
+services:
+  api:
+    build:
+      context: ./src/backend
+      dockerfile: Dockerfile
+    env_file: backend.env
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - OPEN_AI_KEY
+    depends_on:
+      redis:
+        condition: service_healthy
+    ports:
+      - 8000:8000
+    volumes:
+      - ./models:/app/models:ro
+
+  web:
+    build:
+      context: ./src/frontend
+      dockerfile: Dockerfile
+    env_file: frontend.env
+    environment:
+      - BASE_URL=http://api:8000
+    depends_on:
+      api:
+        condition: service_started
+    ports:
+      - 8501:8501
+
+  redis:
+    image: redis:7
+    command: ["redis-server", "--appendonly", "yes"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    volumes:
+      - redis_data:/data
+
+volumes:
+  redis_data:

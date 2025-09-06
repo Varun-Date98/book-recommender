@@ -1,10 +1,8 @@
-numpy
-pandas
 redis
+pandas
 orjson
 fastapi
 uvicorn[standard]
 streamlit
 openai
 python-dotenv
-scikit-learn

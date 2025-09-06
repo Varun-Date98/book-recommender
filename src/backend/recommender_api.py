@@ -5,10 +5,10 @@ import numpy as np
 import pandas as pd
 from datetime import date
 from dotenv import load_dotenv
-
-from src import caching
-
 from typing import Optional, List
+
+from src.backend import caching
+from src.backend.llm_interface import LanguageModel
 
 import requests
 from requests.adapters import HTTPAdapter
@@ -16,8 +16,6 @@ from urllib3.util.retry import Retry
 from fastapi import FastAPI
 from pydantic import BaseModel
 from contextlib import asynccontextmanager
-
-from src.LanguageModel import LanguageModel
 
 
 # Setting up app logging
@@ -36,7 +34,7 @@ logging.basicConfig(
 logger = logging.getLogger("Book Recommendation Logger")
 
 
-# Required boilerplate code
+# Globals
 models = {}
 llm = LanguageModel()
 caching_enabled = True

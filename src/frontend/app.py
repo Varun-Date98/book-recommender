@@ -13,23 +13,6 @@ st.set_page_config(
     layout="wide"
 )
 
-st.markdown("""
-<style>
-.small { color:#94a3b8; font-size:0.9rem; }
-.card {
-  padding: 1rem; border: 1px solid #1f2937; border-radius: 12px;
-  background: #0b1220; color: #e5e7eb;
-}
-.grid { display:grid; grid-gap: 12px; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
-.book { background:#0f172a; border:1px solid #1f2937; border-radius:10px; padding:12px; }
-.cover { width:100%; height:340px; object-fit:cover; border-radius:8px; background:#0b1220; }
-.title { font-weight:700; margin-top:8px; }
-.author { color:#9ca3af; margin-top:4px; }
-.score { color:#34d399; margin-top:6px; }
-.sugg-item { padding:4px 8px; border-radius:6px; }
-.sugg-item:hover { background:#111827; cursor:pointer; }
-</style>
-""", unsafe_allow_html=True)
 
 @st.cache_data
 def load_titles():
