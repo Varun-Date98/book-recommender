@@ -1,5 +1,7 @@
 # Files
 .env
+frontend.env
+backend.env
 
 # Folders
 /venv
