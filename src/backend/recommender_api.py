@@ -107,10 +107,10 @@ def get_cover_images(titles: List[str], authors: List[str]):
                 resp = s.get(query)
 
                 if resp.status_code == 200:
-                    d = resp.json().get("docs", [None])[0]
+                    d = resp.json().get("docs", [None])
 
                     if d:
-                        ids.append(d.get("cover_i", None))
+                        ids.append(d[0].get("cover_i", None))
                     else:
                         ids.append(None)
                 else:
